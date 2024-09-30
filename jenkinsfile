@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Maram-Hassan/react-library.git'
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'npm run build'
+            }
+        }
+        stage('Create Package') {
+            steps {
+                sh 'npm pack'
+            }
+        }
+        stage('Setup Authentication') {
+            steps {
+                // Use the token file stored in Jenkins credentials
+                withCredentials([file(credentialsId: 'mynpm-cred', variable: 'NPM_TOKEN')]) {
+                    sh 'npm config set //localhost:8081/repository/npm-private/:_authToken=${NPM_TOKEN}'
+                }
+            }
+        }
+        stage('Publish Package') {
+            steps {
+                withCredentials([file(credentialsId: 'mynpm-cred', variable: 'my-npmrc')]) {
+                    // Publish your package using the existing .npmrc file
+                    sh 'npm publish --userconfig $my-npmrc --loglevel verbose --registry=http://localhost:8081/repository/npm-private/' 
+                }
+            }
+        }
+    }
+    post {
+        success {
+            echo 'Build and artifact upload completed successfully!'
+        }
+        failure {
+            echo 'Build failed.'
+        }
+    }
+}
